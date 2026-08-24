@@ -54,30 +54,46 @@ flowchart LR
 
 ---
 
-## 🚀 Quick Install (1-Minute Setup)
+## 🚀 One-Prompt Install
 
-### Step 1: Load Extension
-1. Clone this repo:
+Copy and paste this prompt directly into your AI coding assistant (**Claude Code**, **Codex**, or **Antigravity**):
+
+```text
+Please set up agent-chrome-mcp for me:
+1. Clone https://github.com/phidn/agent-chrome-mcp.git into ~/.config/agent-chrome-mcp-repo (or keep if already in this repo).
+2. Tell me to open chrome://extensions in Developer mode, click "Load unpacked", and select the extension/ directory.
+3. Ask me for the 32-character Extension ID.
+4. Once I provide the Extension ID, run ./scripts/install.sh <EXTENSION_ID> to register the native messaging host.
+5. Add the stdio MCP server to my client configuration and verify with the healthcheck tool.
+```
+
+*(Your AI agent will guide you through loading the unpacked extension, execute the install script, and configure its own MCP server settings).*
+
+---
+
+<details>
+<summary><b>💻 Manual Terminal Setup (Click to expand)</b></summary>
+
+### 1. Load Extension
+1. Clone the repo:
    ```bash
    git clone https://github.com/phidn/agent-chrome-mcp.git
    cd agent-chrome-mcp
    ```
 2. Open `chrome://extensions` (or `brave://extensions`, `edge://extensions`).
-3. Turn on **Developer mode** (top right toggle).
+3. Enable **Developer mode** (top right toggle).
 4. Click **Load unpacked** and select the `extension/` folder.
-5. Copy the 32-character **Extension ID** displayed on the extension card.
+5. Copy the 32-character **Extension ID**.
 
-### Step 2: Run Installer
-Run the installer with your Extension ID (it automatically builds dependencies and registers native host manifests for Chrome, Brave, and Edge):
-
+### 2. Run Installer
 ```bash
 ./scripts/install.sh <extension-id>
+# Or run interactively:
+make install
 ```
-*(Or just run `./scripts/install.sh` / `make install` to enter the ID interactively).*
+> **Note**: Fully quit (Cmd+Q on macOS) and reopen your browser so Chrome picks up the registered native messaging host.
 
-> **Note**: Fully quit (Cmd+Q on macOS) and reopen your browser so Chrome picks up the newly registered native messaging host.
-
-### Step 3: Add to Your AI Client
+### 3. Add to AI Client
 
 ```bash
 # Claude Code
@@ -87,7 +103,7 @@ claude mcp add -s user agent-chrome-mcp -- "$(command -v node)" "$(pwd)/host/mcp
 codex mcp add agent-chrome-mcp -- "$(command -v node)" "$(pwd)/host/mcp-server.js"
 ```
 
-For **Antigravity (CLI / IDE)**, add the server to `~/.gemini/antigravity-cli/mcp_config.json` (or `.agents/mcp.json` in your workspace):
+For **Antigravity (CLI / IDE)**, add the server to `~/.gemini/antigravity-cli/mcp_config.json` (or `.agents/mcp.json`):
 
 ```json
 {
@@ -100,16 +116,7 @@ For **Antigravity (CLI / IDE)**, add the server to `~/.gemini/antigravity-cli/mc
 }
 ```
 
----
-
-## 💬 One-Prompt Agent Setup
-
-If you are already inside Claude Code, Codex, or Antigravity, you can simply paste this prompt:
-
-```text
-Please set up agent-chrome-mcp for me using extension ID: <YOUR_EXTENSION_ID>
-Run ./scripts/install.sh <YOUR_EXTENSION_ID> and configure your MCP settings.
-```
+</details>
 
 ---
 
