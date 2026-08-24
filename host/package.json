@@ -1,0 +1,10 @@
+{
+  "name": "agent-chrome-mcp-host",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Client-neutral MCP server and native messaging host for Agent Chrome MCP",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  }
+}

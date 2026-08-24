@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "agent-chrome-mcp": {
+      "command": "node",
+      "args": [
+        "/Volumes/Lexar_E6/davis/projects/agent-chrome-mcp/host/mcp-server.js"
+      ]
+    }
+  }
+}
