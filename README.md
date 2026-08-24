@@ -17,6 +17,19 @@
 - **Isolated Tab Groups**: Named tab groups keep each agent's active tabs cleanly separated.
 - **Rich Action Suite**: Click, type, scroll, drag, screenshots, console/network inspection, file upload, screen recording, and in-page authenticated relay fetching (`relay_fetch`).
 
+<br/>
+
+<table width="100%">
+  <tr>
+    <th width="38%" align="center">⚡ Extension Popup (Status & 27 Tools)</th>
+    <th width="62%" align="center">🏷️ Multi-Profile Routing Options</th>
+  </tr>
+  <tr valign="top">
+    <td align="center"><img src="assets/popup.png" alt="Extension Popup and 27 Tools" /></td>
+    <td align="center"><img src="assets/options.png" alt="Multi-Profile Label Configuration" /></td>
+  </tr>
+</table>
+
 ---
 
 ## 🏗️ Architecture
