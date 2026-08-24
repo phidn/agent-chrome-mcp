@@ -45,10 +45,6 @@ menu:
 	esac
 
 install:
-	@if [ -z "$(IDS)" ]; then \
-		echo "Usage: make install IDS=\"<extension-id> [extension-id-2] ...\""; \
-		exit 1; \
-	fi
 	./scripts/install.sh $(IDS)
 
 uninstall:

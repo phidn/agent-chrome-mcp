@@ -10,23 +10,31 @@ set -e
 # ID when loading unpacked extensions, so if you use both Chrome and Brave,
 # pass both IDs.
 
-if [ -z "$1" ]; then
-  echo "Usage: ./scripts/install.sh <extension-id> [extension-id-2] ..."
-  echo ""
-  echo "Pass one extension ID per browser you want to use."
-  echo "Each browser assigns a different ID to the same unpacked extension."
-  echo ""
-  echo "Steps:"
-  echo "  1. Open chrome://extensions (and/or brave://extensions)"
-  echo "  2. Enable Developer Mode"
-  echo "  3. Click 'Load unpacked' and select the extension/ directory"
-  echo "  4. Copy the extension ID shown under the extension name"
-  echo "  5. Repeat for each browser"
-  echo "  6. Run: ./scripts/install.sh <chrome-id> <brave-id>"
-  exit 1
-fi
-
 EXTENSION_IDS=("$@")
+
+if [ ${#EXTENSION_IDS[@]} -eq 0 ]; then
+  if [ -t 0 ]; then
+    echo "=================================================="
+    echo "       Agent Chrome MCP - Quick Setup            "
+    echo "=================================================="
+    echo "1. Go to chrome://extensions (or brave://extensions, edge://extensions)"
+    echo "2. Enable 'Developer mode' (top right toggle)"
+    echo "3. Click 'Load unpacked' and select the 'extension/' folder in this repo"
+    echo "4. Copy the 32-character Extension ID shown on the card"
+    echo ""
+    printf "Enter Extension ID(s) [space-separated]: "
+    read -r user_ids
+    if [ -z "$user_ids" ]; then
+      echo "No extension ID provided. Aborting."
+      exit 1
+    fi
+    # split into array
+    read -r -a EXTENSION_IDS <<< "$user_ids"
+  else
+    echo "Usage: ./scripts/install.sh <extension-id> [extension-id-2] ..."
+    exit 1
+  fi
+fi
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOST_DIR="$REPO_ROOT/host"
 NATIVE_HOST_PATH="$HOST_DIR/native-host-wrapper.sh"
