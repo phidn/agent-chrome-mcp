@@ -17,4 +17,8 @@ Thumbs.db
 .agents/
 .claude/
 *.local.*
+.local/
 scratch/
+.reports/
+
+

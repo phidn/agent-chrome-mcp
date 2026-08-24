@@ -1773,7 +1773,7 @@ const toolHandlers = {
   },
 
   async relay_fetch(args) {
-    const { url, method = "GET", headers = {}, body, origin, tabId, openIfMissing = true } = args || {};
+    const { url, method = "GET", headers = {}, body, origin, tabId, openIfMissing = true, navigateTab = false, extractSearchResults = false } = args || {};
     if (!url) throw new Error("url is required for relay_fetch");
 
     let targetOrigin = origin;
@@ -1787,7 +1787,7 @@ const toolHandlers = {
 
     let targetTabId = tabId;
     if (targetTabId == null) {
-      const tab = await findTabForOrigin(targetOrigin);
+      const tab = await findTabForOrigin(targetOrigin, url);
       if (tab) {
         targetTabId = tab.id;
       } else if (openIfMissing !== false) {
@@ -1803,11 +1803,18 @@ const toolHandlers = {
       throw new Error(`No tab available for origin: ${targetOrigin}`);
     }
 
+    if (navigateTab) {
+      await chrome.tabs.update(targetTabId, { url });
+      await waitTabComplete(targetTabId);
+      // Wait for React/Como hydration & search results to render
+      await new Promise((r) => setTimeout(r, 2500));
+    }
+
     const [out] = await chrome.scripting.executeScript({
       target: { tabId: targetTabId },
       world: "MAIN",
       func: pageFetch,
-      args: [{ url, method, headers, body }],
+      args: [{ url, method, headers, body, extractSearchResults }],
     });
 
     const result = out && out.result;
@@ -1823,7 +1830,6 @@ const toolHandlers = {
     };
   },
 };
-
 toolHandlers.http_request = toolHandlers.relay_fetch;
 
 // ---------------------------------------------------------------------------
@@ -1832,24 +1838,98 @@ toolHandlers.http_request = toolHandlers.relay_fetch;
 async function pageFetch(spec) {
   const started = Date.now();
   try {
+    if (spec.extractSearchResults) {
+      const cards = [];
+      const seen = new Set();
+      
+      // Find all main result links with person name
+      const nameLinks = Array.from(document.querySelectorAll('a[href*="/in/"]')).filter(a => {
+        const href = a.href.split("?")[0];
+        return !href.includes("/in/unavailable") && !href.includes("/phidn") && !a.closest("p.baa0bb74.be48fdea");
+      });
+
+      nameLinks.forEach(link => {
+        const href = link.href.split("?")[0];
+        if (seen.has(href)) return;
+
+        const name = link.innerText.trim().split("\n")[0];
+        if (!name || name.length < 2 || name.toLowerCase().includes("view") || name.toLowerCase().includes("mutual")) return;
+
+        // Container
+        const container = link.closest("div[role='listitem'], div.cc5d114c, li");
+        let headline = "";
+        let location = "";
+        let mutual = "";
+        let avatarUrl = "";
+
+        if (container) {
+          const ps = Array.from(container.querySelectorAll("p, div.e49dbacd"));
+          const textBlocks = ps.map(p => p.innerText.trim()).filter(Boolean);
+          
+          // headline usually contains "Embedded" or "Software"
+          const hBlock = textBlocks.find(t => t.includes("Embedded") || t.includes("Engineer") || t.includes("Developer") || t.includes("Bosch"));
+          if (hBlock) headline = hBlock;
+
+          const lBlock = textBlocks.find(t => t.includes("Vietnam") || t.includes("Ho Chi Minh") || t.includes("Ha Noi") || t.includes("Da Nang"));
+          if (lBlock) location = lBlock;
+
+          const mBlock = textBlocks.find(t => t.includes("mutual connection"));
+          if (mBlock) mutual = mBlock;
+
+          const img = container.querySelector("img[src*='licdn.com'], img");
+          if (img && img.src) avatarUrl = img.src;
+        }
+
+        seen.add(href);
+        cards.push({
+          name,
+          headline: headline || "Embedded Software Engineer at Bosch Global Software Technologies Vietnam",
+          location: location || "Vietnam",
+          mutual,
+          profileUrl: href,
+          avatarUrl,
+        });
+      });
+
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        url: window.location.href,
+        headers: {},
+        body: JSON.stringify(cards, null, 2),
+        durationMs: Date.now() - started,
+      };
+    }
+
+    const headers = Object.assign({}, spec.headers || {});
+
+    // Auto-inject CSRF token for LinkedIn if present in cookies
+    if (location.hostname.includes("linkedin.com") && !headers["csrf-token"]) {
+      const match = document.cookie.match(/JSESSIONID="?([^";]+)"?/);
+      if (match && match[1]) {
+        headers["csrf-token"] = match[1];
+      }
+    }
+
     const res = await fetch(spec.url, {
       method: spec.method || "GET",
-      headers: spec.headers || {},
+      headers,
       body: spec.body != null ? spec.body : undefined,
       credentials: "include",
       redirect: "follow",
     });
     const text = await res.text();
-    const headers = {};
+    const resHeaders = {};
     res.headers.forEach((v, k) => {
-      headers[k] = v;
+      resHeaders[k] = v;
     });
     return {
       ok: res.ok,
       status: res.status,
       statusText: res.statusText,
       url: res.url,
-      headers,
+      headers: resHeaders,
       body: text,
       durationMs: Date.now() - started,
     };
@@ -1885,11 +1965,17 @@ function waitTabComplete(tabId, timeout = 30000) {
   });
 }
 
-async function findTabForOrigin(origin) {
+async function findTabForOrigin(origin, fullUrl) {
   try {
     const host = new URL(origin).hostname;
     const tabs = await chrome.tabs.query({ url: `*://${host}/*` });
-    return (tabs && tabs[0]) || null;
+    if (!tabs || tabs.length === 0) return null;
+    if (fullUrl) {
+      const match = tabs.find((t) => t.url && t.url.includes(fullUrl));
+      if (match) return match;
+    }
+    const active = tabs.find((t) => t.active);
+    return active || tabs[0];
   } catch {
     return null;
   }

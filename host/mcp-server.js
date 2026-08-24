@@ -1282,6 +1282,8 @@ server.tool(
     origin: z.string().optional().describe("Target origin (e.g. 'https://www.udemy.com'). If omitted, extracted from url."),
     tabId: z.number().optional().describe("Specific tab ID to execute the fetch in. If omitted, automatically finds an open tab matching the origin or creates one."),
     openIfMissing: z.boolean().optional().describe("If true and no matching tab is open, open a background tab to the origin and wait for it to load. Default is true."),
+    navigateTab: z.boolean().optional().describe("If true, navigate the target tab directly to the URL before executing in-page script."),
+    extractSearchResults: z.boolean().optional().describe("If true, parse and extract member search result cards from the page DOM."),
     profile: profileArg,
   },
   async (args) => callTool("relay_fetch", args)
