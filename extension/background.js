@@ -1771,7 +1771,158 @@ const toolHandlers = {
 
     return { content: [{ type: "text", text: JSON.stringify(data) }] };
   },
+
+  async relay_fetch(args) {
+    const { url, method = "GET", headers = {}, body, origin, tabId, openIfMissing = true } = args || {};
+    if (!url) throw new Error("url is required for relay_fetch");
+
+    let targetOrigin = origin;
+    if (!targetOrigin) {
+      try {
+        targetOrigin = new URL(url).origin;
+      } catch (e) {
+        throw new Error(`Invalid URL: ${url}`);
+      }
+    }
+
+    let targetTabId = tabId;
+    if (targetTabId == null) {
+      const tab = await findTabForOrigin(targetOrigin);
+      if (tab) {
+        targetTabId = tab.id;
+      } else if (openIfMissing !== false) {
+        const newTab = await chrome.tabs.create({ url: targetOrigin, active: false });
+        targetTabId = newTab.id;
+        await waitTabComplete(targetTabId);
+        // Give anti-bot challenge / page load a moment to settle
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+
+    if (targetTabId == null) {
+      throw new Error(`No tab available for origin: ${targetOrigin}`);
+    }
+
+    const [out] = await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      world: "MAIN",
+      func: pageFetch,
+      args: [{ url, method, headers, body }],
+    });
+
+    const result = out && out.result;
+    if (!result) {
+      throw new Error("Execution in page failed to return a result");
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(result, null, 2),
+      }],
+    };
+  },
 };
+
+toolHandlers.http_request = toolHandlers.relay_fetch;
+
+// ---------------------------------------------------------------------------
+// In-page execution functions (runs in MAIN world of target tab)
+// ---------------------------------------------------------------------------
+async function pageFetch(spec) {
+  const started = Date.now();
+  try {
+    const res = await fetch(spec.url, {
+      method: spec.method || "GET",
+      headers: spec.headers || {},
+      body: spec.body != null ? spec.body : undefined,
+      credentials: "include",
+      redirect: "follow",
+    });
+    const text = await res.text();
+    const headers = {};
+    res.headers.forEach((v, k) => {
+      headers[k] = v;
+    });
+    return {
+      ok: res.ok,
+      status: res.status,
+      statusText: res.statusText,
+      url: res.url,
+      headers,
+      body: text,
+      durationMs: Date.now() - started,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      error: (e && e.message) || String(e),
+      durationMs: Date.now() - started,
+    };
+  }
+}
+
+function waitTabComplete(tabId, timeout = 30000) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      try {
+        chrome.tabs.onUpdated.removeListener(l);
+      } catch (e) {}
+      resolve();
+    };
+    const l = (id, info) => {
+      if (id === tabId && info.status === "complete") finish();
+    };
+    chrome.tabs.onUpdated.addListener(l);
+    chrome.tabs.get(tabId, (t) => {
+      if (t && t.status === "complete") finish();
+    });
+    setTimeout(finish, timeout);
+  });
+}
+
+async function findTabForOrigin(origin) {
+  try {
+    const host = new URL(origin).hostname;
+    const tabs = await chrome.tabs.query({ url: `*://${host}/*` });
+    return (tabs && tabs[0]) || null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// External messages listener (for web apps on localhost)
+// ---------------------------------------------------------------------------
+chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
+  if (!msg) return;
+  if (msg.action === "sos_runFunc" || msg.action === "relay_runFunc") {
+    if (msg.fn === "ping") {
+      let version = "unknown";
+      try { version = chrome.runtime.getManifest().version; } catch {}
+      sendResponse({ ok: true, data: { ok: true, name: "Agent Chrome MCP", version, profileLabel } });
+      return true;
+    }
+    if (msg.fn === "httpRequest" || msg.fn === "relay_fetch") {
+      const spec = (msg.params && msg.params[0]) || msg.spec || {};
+      toolHandlers.relay_fetch(spec)
+        .then((res) => {
+          try {
+            const parsed = JSON.parse(res.content[0].text);
+            sendResponse({ ok: true, data: parsed });
+          } catch {
+            sendResponse({ ok: true, data: res });
+          }
+        })
+        .catch((e) => sendResponse({ ok: false, error: (e && e.message) || String(e) }));
+      return true;
+    }
+  }
+});
 
 // --- Tool dispatch ---
 async function handleToolRequest(id, tool, args) {
@@ -1797,3 +1948,4 @@ async function handleToolRequest(id, tool, args) {
 
 stateLoaded = loadGroupsState();
 Promise.all([stateLoaded, loadProfileLabel()]).then(connectNativeHost);
+
