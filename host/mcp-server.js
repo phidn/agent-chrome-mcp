@@ -1270,6 +1270,24 @@ server.tool(
   async (args) => callTool("manage_extensions", args)
 );
 
+// 20b. relay_fetch
+server.tool(
+  "relay_fetch",
+  "Relay an arbitrary HTTP request through a real browser tab in the target origin (same-origin fetch + cookies + browser TLS fingerprint). Bypasses Cloudflare/anti-bot gates (e.g. Udemy, Hosocongty, Masothue, etc.) that reject server-side fetch/curl with HTTP 403 Forbidden. Can run in a specified tab or automatically find/open a tab matching the target origin.",
+  {
+    url: z.string().describe("The URL to fetch (e.g. 'https://www.udemy.com/api-2.0/users/me/taught-profile-courses/' or GraphQL endpoint)."),
+    method: z.string().optional().describe("HTTP method: GET, POST, PUT, DELETE, PATCH, etc. Default is GET."),
+    headers: z.record(z.string(), z.string()).optional().describe("Key-value pairs of request headers (e.g. {'Content-Type': 'application/json'})."),
+    body: z.string().optional().describe("Request body for POST/PUT requests (JSON string, GraphQL query body, etc.)."),
+    origin: z.string().optional().describe("Target origin (e.g. 'https://www.udemy.com'). If omitted, extracted from url."),
+    tabId: z.number().optional().describe("Specific tab ID to execute the fetch in. If omitted, automatically finds an open tab matching the origin or creates one."),
+    openIfMissing: z.boolean().optional().describe("If true and no matching tab is open, open a background tab to the origin and wait for it to load. Default is true."),
+    profile: profileArg,
+  },
+  async (args) => callTool("relay_fetch", args)
+);
+
+
 // 21. healthcheck
 //
 // Composes mcp-server's local state + a best-effort probe of the extension.

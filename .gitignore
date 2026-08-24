@@ -1,3 +1,20 @@
+# Node
 host/node_modules/
 host/native-host-wrapper.sh
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / Editor
 .DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Agent / Client local configs
+.agents/
+.claude/
+*.local.*
+scratch/
